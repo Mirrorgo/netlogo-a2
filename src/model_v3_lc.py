@@ -50,10 +50,11 @@ class Model:
                 neighborhood = []
                 for dx in range(-self.vision, self.vision + 1):
                     for dy in range(-self.vision, self.vision + 1):
+                        # Check the distance to ensure it's within the vision radius
                         if dx ** 2 + dy ** 2 <= self.vision ** 2:
-                            nx, ny = x + dx, y + dy
-                            if 0 <= nx < self.width and 0 <= ny < self.height:
-                                neighborhood.append((nx, ny))
+                            # Apply periodic boundary conditions
+                            nx, ny = (x + dx) % self.width, (y + dy) % self.height
+                            neighborhood.append((nx, ny))
                 self.neighborhoods[x][y] = neighborhood
 
     def create_agents(self, num_agents):
@@ -77,24 +78,33 @@ class Model:
 
     def step(self):
         quiet_count = jail_count = active_count = 0
+
+        # 处理每个代理人
         for agent in self.agents:
             if agent.jail_term > 0:
                 agent.jail_term -= 1
                 jail_count += 1
-                continue  # Skip movement and behavior determination for jailed agents
+                continue  # 跳过被监禁的代理人
 
+            # 代理人移动
+            self.move_agent(agent)
+            # 移动后立即决定行为
+            self.determine_behavior(agent)
+
+            # 更新统计数据
             if agent.active:
                 active_count += 1
             else:
                 quiet_count += 1
 
-            self.move_agent(agent)
-            self.determine_behavior(agent)
-
+        # 处理每个警察
         for cop in self.cops:
+            # 警察移动
             self.move_agent(cop)
+            # 移动后执行执法行为
             self.enforce(cop)
 
+        # 更新数据记录
         self.data['quiet'].append(quiet_count)
         self.data['jail'].append(jail_count)
         self.data['active'].append(active_count)
@@ -120,8 +130,9 @@ class Model:
             agent.position = new_position
 
     def determine_behavior(self, agent):
+        x, y = agent.position
         grievance = agent.hardship * (1 - self.gov_legitimacy)
-        arrest_probability = self.estimate_arrest_probability(agent.position)
+        arrest_probability = self.estimate_arrest_probability((x, y))
         if grievance - (agent.risk_aversion * arrest_probability) > 0.1:
             agent.active = True
         else:
@@ -171,7 +182,7 @@ K = 2.3
 GOV_LEGITIMACY = 0.3
 MAX_JAIL_TERM = 30
 model = Model(AGENT_DENSITY, COP_DENSITY, VISION, K, GOV_LEGITIMACY, MAX_JAIL_TERM)
-for _ in range(300):
+for _ in range(500):
     model.step()
 
 # 绘制结果
