@@ -44,6 +44,7 @@ class Model:
         self.create_cops(int((cop_density / 100) * self.total_cells))
         self.data = {'quiet': [], 'jail': [], 'active': []}
 
+    # Modification in v3:  consider the boundary condition
     def compute_neighborhoods(self):
         for x in range(self.width):
             for y in range(self.height):
@@ -82,15 +83,10 @@ class Model:
         # 处理每个代理人
         for agent in self.agents:
             if agent.jail_term > 0:
-                agent.jail_term -= 1
                 jail_count += 1
                 continue  # 跳过被监禁的代理人
-
             # 代理人移动
             self.move_agent(agent)
-            # 移动后立即决定行为
-            self.determine_behavior(agent)
-
             # 更新统计数据
             if agent.active:
                 active_count += 1
@@ -101,8 +97,19 @@ class Model:
         for cop in self.cops:
             # 警察移动
             self.move_agent(cop)
+
+        for agent in self.agents:
+            # 移动后立即决定行为
+            self.determine_behavior(agent)
+
+        for cop in self.cops:
             # 移动后执行执法行为
             self.enforce(cop)
+        # 减少监禁期
+        for agent in self.agents:
+            if agent.jail_term > 0:
+                agent.jail_term -= 1
+
 
         # 更新数据记录
         self.data['quiet'].append(quiet_count)
@@ -153,8 +160,7 @@ class Model:
         arrest_prob = 1 - math.exp(-self.k * math.floor(cops_count / (active_agents_count + 1)))
         return arrest_prob
 
-
-# Modification: collect all active agents at first and then randomly select one to jail
+    # Modification: collect all active agents at first and then randomly select one to jail
     def enforce(self, cop):
         x, y = cop.position
         active_agents = []
@@ -176,7 +182,7 @@ class Model:
 
 # 实例化并运行模型
 AGENT_DENSITY = 70
-COP_DENSITY = 10
+COP_DENSITY = 3
 VISION = 7
 K = 2.3
 GOV_LEGITIMACY = 0.3
@@ -195,3 +201,9 @@ plt.ylabel('Number of Agents')
 plt.title('Agent Status Over Time')
 plt.legend()
 plt.show()
+
+
+
+center_neighbors = model.neighborhoods[20][20]
+print(f"Neighbors of center (20, 20): {center_neighbors}")
+
