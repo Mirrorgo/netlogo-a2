@@ -35,13 +35,11 @@ class Model:
         self.k = k
         self.gov_legitimacy = gov_legitimacy
         self.max_jail_term = max_jail_term
-        self.agents = []
-        self.cops = []
+        self.entities = []  # 统一存储所有实体
         self.total_cells = self.width * self.height
         self.neighborhoods = [[[] for _ in range(self.height)] for _ in range(self.width)]
         self.compute_neighborhoods()
-        self.create_agents(int((agent_density / 100) * self.total_cells))
-        self.create_cops(int((cop_density / 100) * self.total_cells))
+        self.create_entities(int((agent_density / 100) * self.total_cells), int((cop_density / 100) * self.total_cells))
         self.data = {'quiet': [], 'jail': [], 'active': []}
 
     # Modification in v3:  consider the boundary condition
@@ -58,17 +56,15 @@ class Model:
                             neighborhood.append((nx, ny))
                 self.neighborhoods[x][y] = neighborhood
 
-    def create_agents(self, num_agents):
+    def create_entities(self, num_agents, num_cops):
         for i in range(num_agents):
             agent = Turtle(i, EntityType.AGENT, self.vision, random.random(), random.random())
             self.place_entity_randomly(agent)
-            self.agents.append(agent)
-
-    def create_cops(self, num_cops):
+            self.entities.append(agent)
         for i in range(num_cops):
-            cop = Turtle(len(self.agents) + i, EntityType.COP, self.vision)
+            cop = Turtle(num_agents + i, EntityType.COP, self.vision)
             self.place_entity_randomly(cop)
-            self.cops.append(cop)
+            self.entities.append(cop)
 
     def place_entity_randomly(self, entity):
         x, y = random.randint(0, self.width - 1), random.randint(0, self.height - 1)
@@ -80,38 +76,22 @@ class Model:
     def step(self):
         quiet_count = jail_count = active_count = 0
 
-        # 处理每个代理人
-        for agent in self.agents:
-            if agent.jail_term > 0:
+        for entity in self.entities:
+            if entity.jail_term > 0:
+                entity.jail_term -= 1
                 jail_count += 1
-                continue  # 跳过被监禁的代理人
-            # 代理人移动
-            self.move_agent(agent)
-            # 更新统计数据
-            if agent.active:
-                active_count += 1
-            else:
-                quiet_count += 1
+                continue
 
-        # 处理每个警察
-        for cop in self.cops:
-            # 警察移动
-            self.move_agent(cop)
+            self.move_agent(entity)
+            if entity.type == EntityType.AGENT:
+                self.determine_behavior(entity)
+                if entity.active:
+                    active_count += 1
+                else:
+                    quiet_count += 1
+            elif entity.type == EntityType.COP:
+                self.enforce(entity)
 
-        for agent in self.agents:
-            # 移动后立即决定行为
-            self.determine_behavior(agent)
-
-        for cop in self.cops:
-            # 移动后执行执法行为
-            self.enforce(cop)
-        # 减少监禁期
-        for agent in self.agents:
-            if agent.jail_term > 0:
-                agent.jail_term -= 1
-
-
-        # 更新数据记录
         self.data['quiet'].append(quiet_count)
         self.data['jail'].append(jail_count)
         self.data['active'].append(active_count)
@@ -188,7 +168,7 @@ K = 2.3
 GOV_LEGITIMACY = 0.3
 MAX_JAIL_TERM = 30
 model = Model(AGENT_DENSITY, COP_DENSITY, VISION, K, GOV_LEGITIMACY, MAX_JAIL_TERM)
-for _ in range(500):
+for _ in range(200):
     model.step()
 
 # 绘制结果
