@@ -142,26 +142,30 @@ class Model:
         arrest_prob = 1 - math.exp(-self.k * math.floor(cops_count / (active_agents_count + 1)))
         return arrest_prob
 
+
+# Modification: collect all active agents at first and then randomly select one to jail
     def enforce(self, cop):
         x, y = cop.position
-        # Use precomputed neighborhood
-        neighborhood = self.neighborhoods[x][y]
-        for nx, ny in neighborhood:
+        active_agents = []
+        # Collect all active agents in the neighborhood
+        for nx, ny in self.neighborhoods[x][y]:
             agent = self.grid[nx][ny]
             if isinstance(agent, Turtle) and agent.active:
-                # Arrest one active agent
-                agent.active = False
-                agent.jail_term = random.randint(0, self.max_jail_term)
-                # Move cop to the position of the arrested agent
-                self.grid[x][y] = None  # Remove cop from current position
-                self.grid[nx][ny] = cop  # Move cop to new position
-                cop.position = (nx, ny)
-                break  # Assume each cop can arrest only one agent per step
+                active_agents.append((agent, nx, ny))
+        # Randomly select one active agent to arrest
+        if active_agents:
+            selected_agent, nx, ny = random.choice(active_agents)
+            selected_agent.active = False
+            selected_agent.jail_term = random.randint(0, self.max_jail_term)
+            # Move cop to the position of the arrested agent
+            self.grid[x][y] = None  # Remove cop from current position
+            self.grid[nx][ny] = cop  # Move cop to new position
+            cop.position = (nx, ny)
 
 
 # 实例化并运行模型
 AGENT_DENSITY = 70
-COP_DENSITY = 7
+COP_DENSITY = 3
 VISION = 7
 K = 2.3
 GOV_LEGITIMACY = 0.76
