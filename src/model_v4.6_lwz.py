@@ -62,19 +62,36 @@ class Model:
     def step(self):
         quiet_count = jail_count = active_count = 0
 
+        # for entity in self.entities:
+        #     if entity.jail_term > 0:
+        #         entity.jail_term -= 1
+        #         jail_count += 1
+        #         continue
+        #     self.move_agent(entity)
+
+        #     if entity.type == EntityType.AGENT:
+        #         self.determine_behavior(entity)
+        #         if entity.active:
+        #             active_count += 1
+        #         else:
+        #             quiet_count += 1
+        #     elif entity.type == EntityType.COP:
+        #         self.enforce(entity)
         for entity in self.entities:
             if entity.jail_term > 0:
-                entity.jail_term -= 1
                 jail_count += 1
-                continue
-            self.move_agent(entity)
-
-            if entity.type == EntityType.AGENT:
-                self.determine_behavior(entity)
+            elif entity.type == EntityType.AGENT:
                 if entity.active:
                     active_count += 1
                 else:
                     quiet_count += 1
+        for entity in self.entities:
+            if entity.jail_term > 0:
+                entity.jail_term -= 1
+                continue
+            self.move_agent(entity)
+            if entity.type == EntityType.AGENT:
+                self.determine_behavior(entity)
             elif entity.type == EntityType.COP:
                 self.enforce(entity)
         self.data['quiet'].append(quiet_count)
