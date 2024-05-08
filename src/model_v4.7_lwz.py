@@ -30,49 +30,35 @@ class Model:
             raise ValueError("The sum of agent_density and cop_density should not exceed 100%")
         self.width = 40
         self.height = 40
-        self.grid = [[None for _ in range(self.height)] for _ in range(self.width)]
         self.vision = vision
         self.k = k
         self.gov_legitimacy = gov_legitimacy
         self.max_jail_term = max_jail_term
         self.entities = []  # 统一存储所有实体
         self.total_cells = self.width * self.height
-        self.neighborhoods = [[[] for _ in range(self.height)] for _ in range(self.width)]
-        self.compute_neighborhoods()
-        self.create_entities(int((agent_density / 100) * self.total_cells), int((cop_density / 100) * self.total_cells))
-        self.data = {'quiet': [int((agent_density / 100) * self.total_cells)], 'jail': [0], 'active': [0]}
+        self.num_agents = int((agent_density / 100) * self.total_cells)
+        self.num_cops = int((cop_density / 100) * self.total_cells)
+        self.create_entities(self.num_agents,self.num_cops)
+        self.data = {'quiet': [self.num_agents], 'jail': [0], 'active': [0]}
 
 
-    # Modification in v3:  consider the boundary condition
-    def compute_neighborhoods(self):
-        for x in range(self.width):
-            for y in range(self.height):
-                neighborhood = []
-                for dx in range(-self.vision, self.vision + 1):
-                    for dy in range(-self.vision, self.vision + 1):
-                        # Check the distance to ensure it's within the vision radius
-                        if dx ** 2 + dy ** 2 <= self.vision ** 2:
-                            # Apply periodic boundary conditions
-                            nx, ny = (x + dx) % self.width, (y + dy) % self.height
-                            neighborhood.append((nx, ny))
-                self.neighborhoods[x][y] = neighborhood
+    def place_entities_randomly(self):
+        positions = [(x, y) for x in range(self.width) for y in range(self.height)]
+        for entity in self.entities:
+            entity.position = random.sample(positions, 1)[0]
+            positions.remove(entity.position) 
 
     def create_entities(self, num_agents, num_cops):
+        # 从0到num_agents-1是agent, num_agents到num_agents+num_cops-1是cops
         for i in range(num_agents):
             agent = Turtle(i, EntityType.AGENT, self.vision, random.random(), random.random())
-            self.place_entity_randomly(agent)
             self.entities.append(agent)
         for i in range(num_cops):
             cop = Turtle(num_agents + i, EntityType.COP, self.vision)
-            self.place_entity_randomly(cop)
             self.entities.append(cop)
+        self.place_entities_randomly()
 
-    def place_entity_randomly(self, entity):
-        x, y = random.randint(0, self.width - 1), random.randint(0, self.height - 1)
-        while self.grid[x][y] is not None:
-            x, y = random.randint(0, self.width - 1), random.randint(0, self.height - 1)
-        self.grid[x][y] = entity
-        entity.position = (x, y)
+  
 
     def step(self):
         quiet_count = jail_count = active_count = 0
@@ -88,12 +74,12 @@ class Model:
         for entity in self.entities:
             if entity.jail_term > 0:
                 jail_count += 1
-            elif entity.type == EntityType.AGENT:
+                continue
+            if entity.type == EntityType.AGENT:
                 if entity.active:
                     active_count += 1
                 else:
                     quiet_count += 1
-        
         self.data['quiet'].append(quiet_count)
         self.data['jail'].append(jail_count)
         self.data['active'].append(active_count)
@@ -101,66 +87,76 @@ class Model:
     def move_agent(self, agent):
         if agent.jail_term > 0:
             return  # Jailed agents do not move
+        def is_position_valid(new_x, new_y):
+            for entity in self.entities:
+                x, y = entity.position
+                if new_x == x and new_y == y: 
+                    if entity.type == EntityType.COP: # 新位置与已有实体的位置重合
+                        return False
+                    elif entity.type == EntityType.AGENT and entity.jail_term == 0:
+                        return False
+            return True 
         x, y = agent.position
-        self.grid[x][y] = None  # Remove agent from current position
-        potential_positions = []
-        # Use precomputed neighborhood
-        neighborhood = self.neighborhoods[x][y]
-        for nx, ny in neighborhood:
-            target = self.grid[nx][ny]
-            if target is None:
-                potential_positions.append((nx, ny))
-            elif isinstance(target, Turtle) and target.jail_term > 0:
-                # Include positions with only jailed agents
-                potential_positions.append((nx, ny))
-        if potential_positions:
-            new_position = random.choice(potential_positions)
-            self.grid[new_position[0]][new_position[1]] = agent
-            agent.position = new_position
+        while True:
+            angle = random.uniform(0, 2 * math.pi)
+            radius = random.uniform(0, self.vision)
+            dx = round(radius * math.cos(angle))
+            dy = round(radius * math.sin(angle))
+            # Update the agent's position, considering wrap-around
+            new_x = (x + dx) % self.width
+            new_y = (y + dy) % self.height
+            if is_position_valid(new_x,new_y):
+                break
+        # Update the agent's position
+        agent.position = (new_x, new_y)
 
-    def determine_behavior(self, agent):
-        x, y = agent.position
+       
+
+    def determine_behavior(self, agent): # ✅
         grievance = agent.hardship * (1 - self.gov_legitimacy)
-        arrest_probability = self.estimate_arrest_probability((x, y))
+        arrest_probability = self.estimate_arrest_probability(agent.position)
         if grievance - (agent.risk_aversion * arrest_probability) > 0.1:
             agent.active = True
         else:
             agent.active = False
 
+    def is_neighbor(self,x,y,j,k):
+        dx = abs(x - j)
+        dy = abs(y - k)
+        distance_x = min(dx, self.width - dx)
+        distance_y = min(dy, self.height - dy)
+        return (distance_x ** 2 + distance_y ** 2) ** 0.5 <= self.vision
+
+
     def estimate_arrest_probability(self, position):
         x, y = position
         cops_count = 0
         active_agents_count = 0
-        neighborhood = self.neighborhoods[x][y]
-        for nx, ny in neighborhood:
-            cell = self.grid[nx][ny]
-            if isinstance(cell, Turtle):
-                if cell.type == EntityType.COP:
+        for entity in self.entities:
+            cx,cy = entity.position
+            if self.is_neighbor(x,y,cx,cy):
+                if(entity.type == EntityType.COP):
                     cops_count += 1
-                elif cell.type == EntityType.AGENT and cell.active:
+                elif entity.type == EntityType.AGENT and entity.active:
                     active_agents_count += 1
         arrest_prob = 1 - math.exp(-self.k * math.floor(cops_count / (active_agents_count + 1)))
         return arrest_prob
 
-    # Modification: collect all active agents at first and then randomly select one to jail
     def enforce(self, cop):
         x, y = cop.position
         active_agents = []
-        # Collect all active agents in the neighborhood
-        for nx, ny in self.neighborhoods[x][y]:
-            agent = self.grid[nx][ny]
-            if isinstance(agent, Turtle) and agent.active:
-                active_agents.append((agent, nx, ny))
+        for entity in self.entities[:self.num_agents]:
+            ax,ay = entity.position
+            if self.is_neighbor(x,y,ax,ay):
+                if entity.type == EntityType.AGENT and entity.active == True:
+                    active_agents.append(entity)
         # Randomly select one active agent to arrest
         if active_agents:
-            selected_agent, nx, ny = random.choice(active_agents)
+            selected_agent = random.choice(active_agents)
             selected_agent.active = False
             selected_agent.jail_term = random.randint(0, self.max_jail_term)
             # Move cop to the position of the arrested agent
-            self.grid[x][y] = None  # Remove cop from current position
-            self.grid[nx][ny] = cop  # Move cop to new position
-            cop.position = (nx, ny)
-
+            cop.position = selected_agent.position
 
 # 实例化并运行模型
 AGENT_DENSITY = 70
