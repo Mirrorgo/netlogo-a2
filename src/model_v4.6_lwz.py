@@ -61,30 +61,6 @@ class Model:
 
     def step(self):
         quiet_count = jail_count = active_count = 0
-
-        # for entity in self.entities:
-        #     if entity.jail_term > 0:
-        #         entity.jail_term -= 1
-        #         jail_count += 1
-        #         continue
-        #     self.move_agent(entity)
-
-        #     if entity.type == EntityType.AGENT:
-        #         self.determine_behavior(entity)
-        #         if entity.active:
-        #             active_count += 1
-        #         else:
-        #             quiet_count += 1
-        #     elif entity.type == EntityType.COP:
-        #         self.enforce(entity)
-        for entity in self.entities:
-            if entity.jail_term > 0:
-                jail_count += 1
-            elif entity.type == EntityType.AGENT:
-                if entity.active:
-                    active_count += 1
-                else:
-                    quiet_count += 1
         for entity in self.entities:
             if entity.jail_term > 0:
                 entity.jail_term -= 1
@@ -94,6 +70,15 @@ class Model:
                 self.determine_behavior(entity)
             elif entity.type == EntityType.COP:
                 self.enforce(entity)
+        for entity in self.entities:
+            if entity.jail_term > 0:
+                jail_count += 1
+                continue
+            if entity.type == EntityType.AGENT:
+                if entity.active:
+                    active_count += 1
+                else:
+                    quiet_count += 1
         self.data['quiet'].append(quiet_count)
         self.data['jail'].append(jail_count)
         self.data['active'].append(active_count)
@@ -112,8 +97,10 @@ class Model:
             return True 
         x, y = agent.position
         while True:
-            dx = random.randint(-self.vision, self.vision)
-            dy = random.randint(-self.vision, self.vision)
+            angle = random.uniform(0, 2 * math.pi)
+            radius = random.uniform(0, self.vision)
+            dx = round(radius * math.cos(angle))
+            dy = round(radius * math.sin(angle))
             # Update the agent's position, considering wrap-around
             new_x = (x + dx) % self.width
             new_y = (y + dy) % self.height
@@ -124,7 +111,7 @@ class Model:
 
        
 
-    def determine_behavior(self, agent):
+    def determine_behavior(self, agent): # ✅
         grievance = agent.hardship * (1 - self.gov_legitimacy)
         arrest_probability = self.estimate_arrest_probability(agent.position)
         if grievance - (agent.risk_aversion * arrest_probability) > 0.1:
@@ -137,7 +124,7 @@ class Model:
         dy = abs(y - k)
         distance_x = min(dx, self.width - dx)
         distance_y = min(dy, self.height - dy)
-        return distance_x <= self.vision and distance_y <= self.vision
+        return (distance_x ** 2 + distance_y ** 2) ** 0.5 <= self.vision
 
 
     def estimate_arrest_probability(self, position):
@@ -154,8 +141,6 @@ class Model:
         arrest_prob = 1 - math.exp(-self.k * math.floor(cops_count / (active_agents_count + 1)))
         return arrest_prob
 
-    # TODO
-    # Modification: collect all active agents at first and then randomly select one to jail
     def enforce(self, cop):
         x, y = cop.position
         active_agents = []
