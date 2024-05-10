@@ -35,6 +35,9 @@
 # Version
 - v1 (by lc)
   - 完成功能逻辑
+- model_v4_lc_new.py 最新的模型，这一版老师说ok了
+- model_v4_lc_extension.py
+  - 添加了extension，新增了neighbor的不满程度对个体不满程度的影响。可以修改neighbor影响的百分比。
 - v4.5 (by lwz)
   - 修改了一些逻辑，用另一种方式实现的功能，但奇怪的是目前和lc的运行结果相同，但是和netlogo不同。
   - 此外，目前这个版本运行较慢，还是需要增加数组存储neighbor增加运行速度
