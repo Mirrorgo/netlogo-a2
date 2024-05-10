@@ -74,24 +74,30 @@ class Model:
         entity.position = (x, y)
 
     def step(self):
+        # 增加了shuffle每一轮都打乱顺序
+        random.shuffle(self.entities)
         quiet_count = jail_count = active_count = 0
 
         for entity in self.entities:
             if entity.jail_term > 0:
                 entity.jail_term -= 1
-                jail_count += 1
                 continue
 
             self.move_agent(entity)
             if entity.type == EntityType.AGENT:
                 self.determine_behavior(entity)
+            elif entity.type == EntityType.COP:
+                self.enforce(entity)
+        # 每次都是前面执行结束之后才跑统计方法
+        for entity in self.entities:
+            if entity.jail_term > 0:
+                jail_count += 1
+                continue
+            if entity.type == EntityType.AGENT:
                 if entity.active:
                     active_count += 1
                 else:
                     quiet_count += 1
-            elif entity.type == EntityType.COP:
-                self.enforce(entity)
-
         self.data['quiet'].append(quiet_count)
         self.data['jail'].append(jail_count)
         self.data['active'].append(active_count)
@@ -162,10 +168,10 @@ class Model:
 
 # 实例化并运行模型
 AGENT_DENSITY = 70
-COP_DENSITY = 3
+COP_DENSITY = 4
 VISION = 7
 K = 2.3
-GOV_LEGITIMACY = 0.3
+GOV_LEGITIMACY = 0.82
 MAX_JAIL_TERM = 30
 model = Model(AGENT_DENSITY, COP_DENSITY, VISION, K, GOV_LEGITIMACY, MAX_JAIL_TERM)
 for _ in range(200):
