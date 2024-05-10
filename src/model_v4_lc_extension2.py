@@ -4,6 +4,9 @@ import math
 import matplotlib.pyplot as plt
 from enum import Enum
 
+import numpy as np
+from scipy.signal import find_peaks
+
 
 class EntityType(Enum):
     AGENT = 'Agent'
@@ -203,27 +206,57 @@ def run_experiment(neighbor_influence_percentage):
         neighbor_influence_percentage=neighbor_influence_percentage
     )
 
-    for _ in range(200):  # 模拟500步
+    for _ in range(500):  # 模拟500步
         model.step()
+    return model.data['active']
 
-    # 绘制结果
-    plt.figure(figsize=(10, 6))
-    plt.plot(model.data['quiet'], label='Quiet Agents')
-    plt.plot(model.data['jail'], label='Jailed Agents')
-    plt.plot(model.data['active'], label='Active Agents')
-    plt.xlabel('Time Steps')
-    plt.ylabel('Number of Agents')
-    plt.title(f'Agent Status Over Time with NIP {neighbor_influence_percentage}')
-    plt.legend()
-    plt.savefig(f'results_{neighbor_influence_percentage}.png')  # 保存图像
-    plt.close()  # 关闭图形窗口以释放资源
+
+def analyze_peaks(active_data):
+    active_data = np.array(active_data)  # 确保active_data是NumPy数组
+    peaks, _ = find_peaks(active_data, height=0)  # 可以通过height参数调整峰值识别的灵敏度
+    peak_values = active_data[peaks]  # 现在可以正确使用peaks进行索引
+    return peak_values.mean() if len(peak_values) > 0 else 0
 
 
 # 实验参数
-# neighbor_influence_percentages = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-neighbor_influence_percentages = [0]
-# 运行实验
+neighbor_influence_percentages = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+
+# 收集结果
+average_peak_values = []
 for nip in neighbor_influence_percentages:
-    run_experiment(nip)
+    active_data = run_experiment(nip)
+    average_peak = analyze_peaks(active_data)
+    average_peak_values.append(average_peak)
+    print(average_peak)
+# 绘制结果
+plt.figure(figsize=(10, 6))
+plt.plot(neighbor_influence_percentages, average_peak_values, marker='o')
+plt.xlabel('Neighbor Influence Percentage')
+plt.ylabel('Average Peak Active Agents')
+plt.title('Average Peak of Active Agents vs. Neighbor Influence Percentage')
+plt.grid(True)
+plt.show()
+plt.savefig(f'Average_peak.png')
+
+
+#     # 绘制结果
+#     plt.figure(figsize=(10, 6))
+#     plt.plot(model.data['quiet'], label='Quiet Agents')
+#     plt.plot(model.data['jail'], label='Jailed Agents')
+#     plt.plot(model.data['active'], label='Active Agents')
+#     plt.xlabel('Time Steps')
+#     plt.ylabel('Number of Agents')
+#     plt.title(f'Agent Status Over Time with NIP {neighbor_influence_percentage}')
+#     plt.legend()
+#     plt.savefig(f'results_{neighbor_influence_percentage}.png')  # 保存图像
+#     plt.close()  # 关闭图形窗口以释放资源
+#
+#
+# # 实验参数
+# neighbor_influence_percentages = [0.1, 0.3, 0.5, 0.7, 0.9]
+#
+# # 运行实验
+# for nip in neighbor_influence_percentages:
+#     run_experiment(nip)
 
 
