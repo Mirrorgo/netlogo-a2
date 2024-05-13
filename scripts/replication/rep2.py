@@ -189,7 +189,7 @@ for _ in range(200):
     model.step()
 
 # Export data to CSV file
-with open('rep2.csv', 'w', newline='') as csvfile:
+with open('rep2.py.csv', 'w', newline='') as csvfile:
     fieldnames = ['Time Step', 'Quiet Agents', 'Jailed Agents', 'Active Agents']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 

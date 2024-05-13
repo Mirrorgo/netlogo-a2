@@ -104,7 +104,7 @@ class Model:
         self.data['active'].append(active_count)
         # Decrease government legitimacy after a certain number of ticks
         if self.tick > 80:
-            self.gov_legitimacy = 0.65
+            self.gov_legitimacy = 0.5
 
         self.tick += 1
         
@@ -189,7 +189,7 @@ for _ in range(200):
     model.step()
 
 # Export data to CSV file
-with open('rep1.csv', 'w', newline='') as csvfile:
+with open('rep1.py.csv', 'w', newline='') as csvfile:
     fieldnames = ['Time Step', 'Quiet Agents', 'Jailed Agents', 'Active Agents']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 

@@ -76,7 +76,7 @@ to go
   ; advance clock and update plots
   
   ifelse ticks > 80
-    [set government-legitimacy 0.6] 
+    [set government-legitimacy 0.5] 
     [set government-legitimacy 0.9]
   
   tick
