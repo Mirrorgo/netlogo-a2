@@ -1,3 +1,4 @@
+# origin
 import random
 import math
 import matplotlib.pyplot as plt
@@ -167,12 +168,12 @@ class Model:
 
 
 # 实例化并运行模型
-AGENT_DENSITY = 70
-COP_DENSITY = 29
+AGENT_DENSITY = 20
+COP_DENSITY = 1
 VISION = 7
 K = 2.3
-GOV_LEGITIMACY = 0.3
-MAX_JAIL_TERM = 30
+GOV_LEGITIMACY = 0.7
+MAX_JAIL_TERM = 10
 model = Model(AGENT_DENSITY, COP_DENSITY, VISION, K, GOV_LEGITIMACY, MAX_JAIL_TERM)
 for _ in range(200):
     model.step()
@@ -187,5 +188,3 @@ plt.ylabel('Number of Agents')
 plt.title('Agent Status Over Time')
 plt.legend()
 plt.show()
-
-

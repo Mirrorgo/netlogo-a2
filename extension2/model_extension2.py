@@ -82,6 +82,8 @@ class Model:
                 entity.jail_term -= 1
                 continue
             if entity.type == EntityType.AGENT:
+                if self.should_move(entity):
+                    self.move_agent(entity)
                 self.determine_behavior(entity)
             elif entity.type == EntityType.COP:
                 self.enforce(entity)
@@ -97,6 +99,19 @@ class Model:
         self.data['quiet'].append(quiet_count)
         self.data['jail'].append(jail_count)
         self.data['active'].append(active_count)
+
+    def should_move(self, agent):
+        cops_count = 0
+        x, y = agent.position
+        neighborhood = self.neighborhoods[x][y]
+        for nx, ny in neighborhood:
+            cell = self.grid[nx][ny]
+            if isinstance(cell, Turtle):
+                if cell.type == EntityType.COP:
+                    cops_count += 1
+        if cops_count == 0:
+            return False
+        return True
 
     def move_agent(self, agent):
         if agent.jail_term > 0:
@@ -118,33 +133,30 @@ class Model:
             self.grid[new_position[0]][new_position[1]] = agent
             agent.position = new_position
 
+    def estimate_arrest_probability(self, position):
+        x, y = position
+        cops_count = 0
+        active_agents_count = 0
+        neighborhood = self.neighborhoods[x][y]
+        for nx, ny in neighborhood:
+            cell = self.grid[nx][ny]
+            if isinstance(cell, Turtle):
+                if cell.type == EntityType.COP:
+                    cops_count += 1
+                elif cell.type == EntityType.AGENT and cell.active:
+                    active_agents_count += 1
+        arrest_prob = 1 - math.exp(-self.k * math.floor(cops_count / (active_agents_count + 1)))
+        return arrest_prob
+
     def determine_behavior(self, agent):
-        def estimate_arrest_probability(position):
-            x, y = position
-            cops_count = 0
-            active_agents_count = 0
-            neighborhood = self.neighborhoods[x][y]
-            for nx, ny in neighborhood:
-                cell = self.grid[nx][ny]
-                if isinstance(cell, Turtle):
-                    if cell.type == EntityType.COP:
-                        cops_count += 1
-                    elif cell.type == EntityType.AGENT and cell.active:
-                        active_agents_count += 1
-            arrest_prob = 1 - math.exp(-self.k * math.floor(cops_count / (active_agents_count + 1)))
-            if cops_count == 0:
-                self.move_agent(agent)
-            return arrest_prob
-        
         x, y = agent.position
         grievance = agent.hardship * (1 - self.gov_legitimacy)
-        arrest_probability = estimate_arrest_probability((x, y))
+        arrest_probability = self.estimate_arrest_probability((x, y))
         if grievance - (agent.risk_aversion * arrest_probability) > 0.1:
             agent.active = True
         else:
             agent.active = False
 
-  
 
     # Modification: collect all active agents at first and then randomly select one to jail
     def enforce(self, cop):
@@ -168,12 +180,12 @@ class Model:
 
 
 # 实例化并运行模型
-AGENT_DENSITY = 70
-COP_DENSITY = 29
+AGENT_DENSITY = 20
+COP_DENSITY = 1
 VISION = 7
 K = 2.3
-GOV_LEGITIMACY = 0.3
-MAX_JAIL_TERM = 30
+GOV_LEGITIMACY = 0.7
+MAX_JAIL_TERM = 10
 model = Model(AGENT_DENSITY, COP_DENSITY, VISION, K, GOV_LEGITIMACY, MAX_JAIL_TERM)
 for _ in range(200):
     model.step()
