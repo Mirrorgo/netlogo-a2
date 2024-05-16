@@ -1,0 +1,1 @@
+extension4才是最终成功的extension,其他的都没有什么有趣的现象
