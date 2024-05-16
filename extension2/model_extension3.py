@@ -1,3 +1,4 @@
+# origin
 import random
 import math
 import matplotlib.pyplot as plt
@@ -41,7 +42,7 @@ class Model:
         self.compute_neighborhoods()
         self.create_entities(int((agent_density / 100) * self.total_cells), int((cop_density / 100) * self.total_cells))
         self.data = {'quiet': [int((agent_density / 100) * self.total_cells)], 'jail': [0], 'active': [0]}
-
+        self.step_number = 0
 
     # Modification in v3:  consider the boundary condition
     def compute_neighborhoods(self):
@@ -75,52 +76,37 @@ class Model:
         entity.position = (x, y)
 
     def step(self):
+        # 增加了shuffle每一轮都打乱顺序
         random.shuffle(self.entities)
         quiet_count = jail_count = active_count = 0
+
         for entity in self.entities:
             if entity.jail_term > 0:
                 entity.jail_term -= 1
                 continue
-            if entity.type == EntityType.AGENT:
-                if self.determine_behavior(entity):
-                    entity.active = True
-                else:
-                    # 不能active,太危险的时候，先移动
-                    self.move_agent(entity)
-                    if self.determine_behavior(entity):
-                        entity.active = True
-                    else: entity.active = False
 
-                # if self.should_move(entity):
-                #     self.move_agent(entity)
-                # self.determine_behavior(entity)
+            self.move_agent(entity)
+            if entity.type == EntityType.AGENT:
+                self.determine_behavior(entity)
             elif entity.type == EntityType.COP:
                 self.enforce(entity)
+        if self.step_number > 100:
+            self.max_jail_term = 50
+
+        # 每次都是前面执行结束之后才跑统计方法
         for entity in self.entities:
             if entity.jail_term > 0:
                 jail_count += 1
-            elif entity.type == EntityType.AGENT:
+                continue
+            if entity.type == EntityType.AGENT:
                 if entity.active:
                     active_count += 1
                 else:
                     quiet_count += 1
-        
         self.data['quiet'].append(quiet_count)
         self.data['jail'].append(jail_count)
         self.data['active'].append(active_count)
-
-    def should_move(self, agent):
-        cops_count = 0
-        x, y = agent.position
-        neighborhood = self.neighborhoods[x][y]
-        for nx, ny in neighborhood:
-            cell = self.grid[nx][ny]
-            if isinstance(cell, Turtle):
-                if cell.type == EntityType.COP:
-                    cops_count += 1
-        if cops_count == 0:
-            return False
-        return True
+        self.step_number += 1
 
     def move_agent(self, agent):
         if agent.jail_term > 0:
@@ -142,6 +128,15 @@ class Model:
             self.grid[new_position[0]][new_position[1]] = agent
             agent.position = new_position
 
+    def determine_behavior(self, agent):
+        x, y = agent.position
+        grievance = agent.hardship * (1 - self.gov_legitimacy)
+        arrest_probability = self.estimate_arrest_probability((x, y))
+        if grievance - (agent.risk_aversion * arrest_probability) > 0.1:
+            agent.active = True
+        else:
+            agent.active = False
+
     def estimate_arrest_probability(self, position):
         x, y = position
         cops_count = 0
@@ -157,21 +152,8 @@ class Model:
         arrest_prob = 1 - math.exp(-self.k * math.floor(cops_count / (active_agents_count + 1)))
         return arrest_prob
 
-    def determine_behavior(self, agent):
-        x, y = agent.position
-        grievance = agent.hardship * (1 - self.gov_legitimacy)
-        arrest_probability = self.estimate_arrest_probability((x, y))
-        if grievance - (agent.risk_aversion * arrest_probability) > 0.1:
-            # agent.active = True
-            return True
-        else:
-            # agent.active = False
-            return False
-
-
     # Modification: collect all active agents at first and then randomly select one to jail
     def enforce(self, cop):
-        self.move_agent(cop)
         x, y = cop.position
         active_agents = []
         # Collect all active agents in the neighborhood
