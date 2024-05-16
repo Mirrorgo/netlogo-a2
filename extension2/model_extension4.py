@@ -41,7 +41,7 @@ class Model:
         self.neighborhoods = [[[] for _ in range(self.height)] for _ in range(self.width)]
         self.compute_neighborhoods()
         self.create_entities(int((agent_density / 100) * self.total_cells), int((cop_density / 100) * self.total_cells))
-        self.data = {'quiet': [int((agent_density / 100) * self.total_cells)], 'jail': [0], 'active': [0]}
+        self.data = {'quiet': [int((agent_density / 100) * self.total_cells)], 'jail': [0], 'active': [0],"cop":[]}
 
     # Modification in v3:  consider the boundary condition
     def compute_neighborhoods(self):
@@ -77,7 +77,7 @@ class Model:
     def step(self):
         # 增加了shuffle每一轮都打乱顺序
         random.shuffle(self.entities)
-        quiet_count = jail_count = active_count = 0
+        quiet_count = jail_count = active_count = cop_count = 0
 
         for entity in self.entities:
             if entity.jail_term > 0:
@@ -90,7 +90,6 @@ class Model:
             elif entity.type == EntityType.COP:
                 self.enforce(entity)
         # 每次都是前面执行结束之后才跑统计方法
-        shouldRemoveCop = True
         for entity in self.entities:
             if entity.jail_term > 0:
                 jail_count += 1
@@ -100,12 +99,23 @@ class Model:
                     active_count += 1
                 else:
                     quiet_count += 1
-            elif entity.type == EntityType.COP and shouldRemoveCop:
+            else:
+                cop_count += 1
+        shouldRemoveCop = True
+        
+        # 遍历实体并移除第一个找到的警察
+        for entity in self.entities:
+            if entity.type == EntityType.COP and shouldRemoveCop:  # 找到第一个警察并且还未移除
                 self.entities.remove(entity)
+                x, y = entity.position
+                self.grid[x][y] = None 
                 shouldRemoveCop = False
+                break  # 找到并移除警察后立即退出循环
+
         self.data['quiet'].append(quiet_count)
         self.data['jail'].append(jail_count)
         self.data['active'].append(active_count)
+        self.data['cop'].append(cop_count)
 
     def move_agent(self, agent):
         if agent.jail_term > 0:
@@ -164,7 +174,8 @@ class Model:
         if active_agents:
             selected_agent, nx, ny = random.choice(active_agents)
             selected_agent.active = False
-            selected_agent.jail_term = random.randint(0, self.max_jail_term)
+            # selected_agent.jail_term = random.randint(0, self.max_jail_term)
+            selected_agent.jail_term = 1000
             # Move cop to the position of the arrested agent
             self.grid[x][y] = None  # Remove cop from current position
             self.grid[nx][ny] = cop  # Move cop to new position
@@ -172,14 +183,14 @@ class Model:
 
 
 # 实例化并运行模型
-AGENT_DENSITY = 20
-COP_DENSITY = 1
+AGENT_DENSITY = 50
+COP_DENSITY = 15
 VISION = 7
 K = 2.3
-GOV_LEGITIMACY = 0.7
-MAX_JAIL_TERM = 10
+GOV_LEGITIMACY = 0.20
+MAX_JAIL_TERM = 30
 model = Model(AGENT_DENSITY, COP_DENSITY, VISION, K, GOV_LEGITIMACY, MAX_JAIL_TERM)
-for _ in range(200):
+for _ in range(500):
     model.step()
 
 # 绘制结果
@@ -187,6 +198,7 @@ plt.figure(figsize=(10, 6))
 plt.plot(model.data['quiet'], label='Quiet Agents', color="green")
 plt.plot(model.data['jail'], label='Jailed Agents',color="black")
 plt.plot(model.data['active'], label='Active Agents',color="red")
+plt.plot(model.data['cop'], label='Cops',color="blue")
 plt.xlabel('Time Steps')
 plt.ylabel('Number of Agents')
 plt.title('Agent Status Over Time')
