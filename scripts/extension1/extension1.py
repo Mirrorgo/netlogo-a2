@@ -1,8 +1,7 @@
-# 添加了扩展，增加了一个neighborhood的不满程度可以影响到个人的不满程度。可以通过调节社会不满程度 的百分比来调节
 import random
 import math
-import matplotlib.pyplot as plt
 from enum import Enum
+import csv
 
 
 class EntityType(Enum):
@@ -17,7 +16,7 @@ class Turtle:
         self.vision = vision
         self.risk_aversion = risk_aversion
         self.hardship = hardship
-        self.adjusted_hardship = hardship  # 新增属性，初始化时与hardship相同
+        self.adjusted_hardship = hardship  # New attribute, initialized to be the same as hardship
         self.active = False
         self.jail_term = 0
         self.position = (None, None)
@@ -38,15 +37,15 @@ class Model:
         self.k = k
         self.gov_legitimacy = gov_legitimacy
         self.max_jail_term = max_jail_term
-        self.entities = []  # 统一存储所有实体
+        self.entities = []  # Store all entities together
         self.total_cells = self.width * self.height
         self.neighborhoods = [[[] for _ in range(self.height)] for _ in range(self.width)]
         self.compute_neighborhoods()
         self.create_entities(int((agent_density / 100) * self.total_cells), int((cop_density / 100) * self.total_cells))
         self.data = {'quiet': [], 'jail': [], 'active': []}
-        self.neighbor_influence_percentage = neighbor_influence_percentage  # 新增全局参数
+        self.neighbor_influence_percentage = neighbor_influence_percentage  # New global parameter
 
-    # Modification in v3:  consider the boundary condition
+    # Consider the boundary condition
     def compute_neighborhoods(self):
         for x in range(self.width):
             for y in range(self.height):
@@ -60,7 +59,7 @@ class Model:
                             neighborhood.append((nx, ny))
                 self.neighborhoods[x][y] = neighborhood
 
-    # 计算受到邻居的hardship影响之后的新的hardship
+    # Calculate the new hardship after being influenced by neighbors
     def compute_adjusted_hardship(self):
         for agent in self.entities:
             if agent.type == EntityType.AGENT:
@@ -76,8 +75,8 @@ class Model:
                 if count > 0:
                     average_hardship = total_hardship / count
                     agent.adjusted_hardship = (
-                        average_hardship * self.neighbor_influence_percentage +
-                        agent.hardship * (1 - self.neighbor_influence_percentage)
+                            average_hardship * self.neighbor_influence_percentage +
+                            agent.hardship * (1 - self.neighbor_influence_percentage)
                     )
 
     def create_entities(self, num_agents, num_cops):
@@ -99,7 +98,7 @@ class Model:
 
     def step(self):
         self.compute_adjusted_hardship()
-        # 增加了shuffle每一轮都打乱顺序
+        # Added shuffle to randomize the order each round
         random.shuffle(self.entities)
         quiet_count = jail_count = active_count = 0
 
@@ -113,7 +112,7 @@ class Model:
                 self.determine_behavior(entity)
             elif entity.type == EntityType.COP:
                 self.enforce(entity)
-        # 每次都是前面执行结束之后才跑统计方法
+        # Only run the statistics method after the previous execution is finished
         for entity in self.entities:
             if entity.jail_term > 0:
                 jail_count += 1
@@ -171,7 +170,7 @@ class Model:
         arrest_prob = 1 - math.exp(-self.k * math.floor(cops_count / (active_agents_count + 1)))
         return arrest_prob
 
-    # Modification: collect all active agents at first and then randomly select one to jail
+    # collect all active agents at first and then randomly select one to jail
     def enforce(self, cop):
         x, y = cop.position
         active_agents = []
@@ -192,7 +191,7 @@ class Model:
 
 
 def run_experiment(neighbor_influence_percentage):
-    # 假设 Model 类和其他相关设置已经按照前面的讨论正确配置
+    # Assume the Model class and other relevant settings are properly configured as discussed earlier
     model = Model(
         agent_density=70,
         cop_density=4,
@@ -203,26 +202,25 @@ def run_experiment(neighbor_influence_percentage):
         neighbor_influence_percentage=neighbor_influence_percentage
     )
 
-    for _ in range(200):  # 模拟500步
+    for _ in range(200):  # Simulate 200 steps
         model.step()
 
-    # 绘制结果
-    plt.figure(figsize=(10, 6))
-    plt.plot(model.data['quiet'], label='Quiet Agents')
-    plt.plot(model.data['jail'], label='Jailed Agents')
-    plt.plot(model.data['active'], label='Active Agents')
-    plt.xlabel('Time Steps')
-    plt.ylabel('Number of Agents')
-    plt.title(f'Agent Status Over Time with NIP {neighbor_influence_percentage}')
-    plt.legend()
-    plt.savefig(f'results_{neighbor_influence_percentage}.png')  # 保存图像
-    plt.close()  # 关闭图形窗口以释放资源
+    # Write results to CSV file
+    filename = f'extension2_{neighbor_influence_percentage}.csv'
+    with open(filename, 'w', newline='') as csvfile:
+        fieldnames = ['time_step', 'quiet', 'jail', 'active']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for t in range(200):
+            writer.writerow({'time_step': t, 'quiet': model.data['quiet'][t], 'jail': model.data['jail'][t],
+                             'active': model.data['active'][t]})
 
 
-# 实验参数
+# Experiment
+# Experiment parameters
 neighbor_influence_percentages = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-# 运行实验
+
+# Run experiments
 for nip in neighbor_influence_percentages:
     run_experiment(nip)
-
-
