@@ -31,7 +31,6 @@ class Turtle:
         self.position = (None, None)
 
     def __repr__(self):
-        """Returns a string representation of the Turtle object."""
         return f"{self.type}{self.agent_id}"
 
 
@@ -51,7 +50,7 @@ class Model:
         self.neighborhoods = [[[] for _ in range(self.height)] for _ in range(self.width)]
         self.compute_neighborhoods()
         self.create_entities(int((agent_density / 100) * self.total_cells), int((cop_density / 100) * self.total_cells))
-        self.data = {'quiet': [int((agent_density / 100) * self.total_cells)], 'jail': [0], 'active': [0],"cop":[]}
+        self.data = {'quiet': [], 'jail': [], 'active': []}
 
     def compute_neighborhoods(self):
         """
@@ -104,7 +103,7 @@ class Model:
         Performs one step of the simulation.
         """
         random.shuffle(self.entities)
-        quiet_count = jail_count = active_count = cop_count = 0
+        quiet_count = jail_count = active_count = 0
 
         for entity in self.entities:
             if entity.jail_term > 0:
@@ -126,23 +125,9 @@ class Model:
                     active_count += 1
                 else:
                     quiet_count += 1
-            else:
-                cop_count += 1
-        shouldRemoveCop = True
-        
-        # Iterate over entities and remove the first cop found
-        for entity in self.entities:
-            if entity.type == EntityType.COP and shouldRemoveCop:  # 找到第一个警察并且还未移除
-                self.entities.remove(entity)
-                x, y = entity.position
-                self.grid[x][y] = None 
-                shouldRemoveCop = False
-                break  # Exit the loop as soon as the cop is found and removed
-
         self.data['quiet'].append(quiet_count)
         self.data['jail'].append(jail_count)
         self.data['active'].append(active_count)
-        self.data['cop'].append(cop_count)
 
     def move_agent(self, agent):
         """
@@ -227,7 +212,7 @@ class Model:
         if active_agents:
             selected_agent, nx, ny = random.choice(active_agents)
             selected_agent.active = False
-            selected_agent.jail_term = 1000
+            selected_agent.jail_term = random.randint(0, self.max_jail_term)
             # Move cop to the position of the arrested agent
             self.grid[x][y] = None  # Remove cop from current position
             self.grid[nx][ny] = cop  # Move cop to new position
@@ -235,32 +220,30 @@ class Model:
 
 
 # Model parameters
-AGENT_DENSITY = 50
-COP_DENSITY = 15
+AGENT_DENSITY = 70
+COP_DENSITY = 4
 VISION = 7
 K = 2.3
-GOV_LEGITIMACY = 0.20
+GOV_LEGITIMACY = 0.65
 MAX_JAIL_TERM = 30
 
-# Instantiate the model and run for 500 time steps
+# Instantiate the model and run for 200 time steps
 model = Model(AGENT_DENSITY, COP_DENSITY, VISION, K, GOV_LEGITIMACY, MAX_JAIL_TERM)
-for _ in range(500):
+for _ in range(200):
     model.step()
 
-
 # Export data to CSV file
-with open('extension2.py.csv', 'w', newline='') as csvfile:
-    fieldnames = ['Time Step', 'Quiet Agents', 'Jailed Agents', 'Active Agents',"Cops"]
+with open('origin.py.csv', 'w', newline='') as csvfile:
+    fieldnames = ['Time Step', 'Quiet Agents', 'Jailed Agents', 'Active Agents']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
     writer.writeheader()
-    for i in range(len(model.data['cop'])):
+    for i in range(len(model.data['quiet'])):
         writer.writerow({
             'Time Step': i,
             'Quiet Agents': model.data['quiet'][i],
             'Jailed Agents': model.data['jail'][i],
-            'Active Agents': model.data['active'][i],
-            'Cops': model.data['cop'][i]
+            'Active Agents': model.data['active'][i]
         })
               
 print("CSV generated successfully!")

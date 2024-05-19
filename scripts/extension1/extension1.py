@@ -1,16 +1,26 @@
+import csv
 import random
 import math
 from enum import Enum
-import csv
-
 
 class EntityType(Enum):
+    """An enumeration to represent types of entities."""
     AGENT = 'Agent'
     COP = 'Cop'
 
-
 class Turtle:
+    """A class to represent a turtle entity in the simulation."""
     def __init__(self, agent_id, type, vision, risk_aversion=None, hardship=None):
+        """
+        Initializes a Turtle object.
+
+        Parameters:
+        agent_id (int): The unique identifier of the turtle.
+        type (EntityType): The type of the turtle (Agent or Cop).
+        vision (int): The vision range of the turtle.
+        risk_aversion (float, optional): The risk aversion factor of the turtle. Defaults to None.
+        hardship (float, optional): The hardship factor of the turtle. Defaults to None.
+        """
         self.agent_id = agent_id
         self.type = type
         self.vision = vision
@@ -22,6 +32,7 @@ class Turtle:
         self.position = (None, None)
 
     def __repr__(self):
+        """Returns a string representation of the Turtle object."""
         return f"{self.type}{self.agent_id}"
 
 
@@ -37,7 +48,7 @@ class Model:
         self.k = k
         self.gov_legitimacy = gov_legitimacy
         self.max_jail_term = max_jail_term
-        self.entities = []  # Store all entities together
+        self.entities = []  # Store all entities
         self.total_cells = self.width * self.height
         self.neighborhoods = [[[] for _ in range(self.height)] for _ in range(self.width)]
         self.compute_neighborhoods()
@@ -45,8 +56,10 @@ class Model:
         self.data = {'quiet': [], 'jail': [], 'active': []}
         self.neighbor_influence_percentage = neighbor_influence_percentage  # New global parameter
 
-    # Consider the boundary condition
     def compute_neighborhoods(self):
+        """
+        Computes neighborhoods for all cells in the grid.
+        """
         for x in range(self.width):
             for y in range(self.height):
                 neighborhood = []
@@ -80,6 +93,13 @@ class Model:
                     )
 
     def create_entities(self, num_agents, num_cops):
+        """
+        Creates agents and cops and places them randomly on the grid.
+
+        Parameters:
+        num_agents (int): The number of agents to create.
+        num_cops (int): The number of cops to create.
+        """
         for i in range(num_agents):
             agent = Turtle(i, EntityType.AGENT, self.vision, random.random(), random.random())
             self.place_entity_randomly(agent)
@@ -98,7 +118,6 @@ class Model:
 
     def step(self):
         self.compute_adjusted_hardship()
-        # Added shuffle to randomize the order each round
         random.shuffle(self.entities)
         quiet_count = jail_count = active_count = 0
 
@@ -112,7 +131,7 @@ class Model:
                 self.determine_behavior(entity)
             elif entity.type == EntityType.COP:
                 self.enforce(entity)
-        # Only run the statistics method after the previous execution is finished
+        # After all entities have taken their actions, count the number of each agent type
         for entity in self.entities:
             if entity.jail_term > 0:
                 jail_count += 1
@@ -127,6 +146,12 @@ class Model:
         self.data['active'].append(active_count)
 
     def move_agent(self, agent):
+        """
+        Moves an agent to a neighboring cell.
+
+        Parameters:
+        agent (Turtle): The agent to move.
+        """
         if agent.jail_term > 0:
             return  # Jailed agents do not move
         x, y = agent.position
@@ -147,6 +172,12 @@ class Model:
             agent.position = new_position
 
     def determine_behavior(self, agent):
+        """
+        Determines the behavior of an agent based on its grievances and arrest probability.
+
+        Parameters:
+        agent (Turtle): The agent to determine behavior for.
+        """
         x, y = agent.position
         grievance = agent.adjusted_hardship * (1 - self.gov_legitimacy)
         arrest_probability = self.estimate_arrest_probability((x, y))
@@ -156,6 +187,15 @@ class Model:
             agent.active = False
 
     def estimate_arrest_probability(self, position):
+        """
+        Estimates the arrest probability at a given position.
+
+        Parameters:
+        position (tuple): The position to estimate arrest probability for.
+
+        Returns:
+        float: The estimated arrest probability.
+        """
         x, y = position
         cops_count = 0
         active_agents_count = 0
@@ -170,8 +210,13 @@ class Model:
         arrest_prob = 1 - math.exp(-self.k * math.floor(cops_count / (active_agents_count + 1)))
         return arrest_prob
 
-    # collect all active agents at first and then randomly select one to jail
     def enforce(self, cop):
+        """
+        Enforces the law by arresting an active agent.
+
+        Parameters:
+        cop (Turtle): The cop to perform enforcement
+        """
         x, y = cop.position
         active_agents = []
         # Collect all active agents in the neighborhood
