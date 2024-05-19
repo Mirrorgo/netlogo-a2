@@ -251,7 +251,7 @@ def run_experiment(neighbor_influence_percentage):
         model.step()
 
     # Write results to CSV file
-    filename = f'extension2_{neighbor_influence_percentage}.csv'
+    filename = f'extension1_{neighbor_influence_percentage}.csv'
     with open(filename, 'w', newline='') as csvfile:
         fieldnames = ['time_step', 'quiet', 'jail', 'active']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
